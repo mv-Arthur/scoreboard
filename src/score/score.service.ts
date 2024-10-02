@@ -1,28 +1,38 @@
 import { HttpService } from "@nestjs/axios";
-import { Injectable } from "@nestjs/common";
-import axios, { AxiosResponse } from "axios";
-import { lastValueFrom, Observable } from "rxjs";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import axios from "axios";
 import { FlightsType, SceduleType } from "./sandbox";
 import * as moment from "moment";
+import { InjectModel } from "@nestjs/sequelize";
+import { Flight } from "./models/Flight.model";
+import { Schedule } from "./models/Schedule.model";
 
 export type eventType = "departure" | "arrival";
 
 class FlightsDto {
      carrier: string;
      time: string;
-     airportName: string;
-     flight: string;
+     flightName: string;
+     flightNumber: string;
      constructor(schedule: SceduleType, event: eventType) {
           this.carrier = schedule.thread.carrier.title;
           this.time = event === "arrival" ? schedule.arrival : schedule.departure;
-          this.airportName = schedule.thread.title;
-          this.flight = schedule.thread.number;
+          this.flightName = schedule.thread.title;
+          this.flightNumber = schedule.thread.number;
      }
+}
+
+export class RemarkDto {
+     readonly fact: string;
+     readonly remark: string;
 }
 
 @Injectable()
 export class ScoreService {
-     constructor(private readonly httpService: HttpService) {}
+     constructor(
+          @InjectModel(Flight) private flightRepository: typeof Flight,
+          @InjectModel(Schedule) private scheduleRepository: typeof Schedule,
+     ) {}
 
      async fetchFlightsToday(event: eventType, date: Date): Promise<FlightsType> {
           const isoDate = date.toISOString();
@@ -46,6 +56,7 @@ export class ScoreService {
           const data = await this.fetchFlightsToday(event, date);
 
           const updated = {
+               type: data.event,
                date: data.date,
                airPortName: data.station.title,
                schedule: data.schedule.map((el) => {
@@ -56,5 +67,63 @@ export class ScoreService {
           };
 
           return updated;
+     }
+
+     async join() {
+          const now = new Date();
+
+          const departure = await this.parseResponseData("departure", now);
+          const arrival = await this.parseResponseData("arrival", now);
+
+          return [departure, arrival];
+     }
+
+     async updateData() {
+          const today = new Date().toISOString().slice(0, 10);
+          console.log(today);
+          const data = await this.join();
+
+          if (data[0].date === today && data[1].date === today) {
+               return await this.flightRepository.findAll({ include: [Schedule] });
+          }
+
+          await this.flightRepository.destroy({
+               where: {},
+               force: true,
+          });
+
+          await Promise.all(
+               data.map(async (el) => {
+                    const flight = await this.flightRepository.create(el);
+                    const schedule = await Promise.all(
+                         el.schedule.map(async (el) => {
+                              const schedule = await this.scheduleRepository.create({ ...el, flightId: flight.id });
+                              return schedule;
+                         }),
+                    );
+
+                    return { ...flight, schedule };
+               }),
+          );
+
+          try {
+               return await this.flightRepository.findAll({ include: [Schedule] });
+          } catch (err) {
+               console.log(err);
+          }
+     }
+
+     async toRemark(scheduleId: number, dto: RemarkDto) {
+          const schedule = await this.scheduleRepository.findOne({ where: { id: scheduleId } });
+          if (!schedule) throw new HttpException("запись не найдена", HttpStatus.BAD_REQUEST);
+
+          const { fact, remark } = dto;
+
+          schedule.fact = fact;
+          schedule.reamark = remark;
+
+          await schedule.save();
+
+          return schedule;
      }
 }

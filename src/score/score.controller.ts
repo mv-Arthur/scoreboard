@@ -1,5 +1,5 @@
-import { Controller, Get } from "@nestjs/common";
-import { ScoreService } from "./score.service";
+import { Body, Controller, Get, Param, Patch } from "@nestjs/common";
+import { RemarkDto, ScoreService } from "./score.service";
 
 @Controller("score")
 export class ScoreController {
@@ -7,10 +7,11 @@ export class ScoreController {
 
      @Get()
      async getTodayScore() {
-          const date = new Date();
-          return {
-               depertue: await this.ScoreService.parseResponseData("departure", date),
-               arrival: await this.ScoreService.parseResponseData("arrival", date),
-          };
+          return this.ScoreService.updateData();
+     }
+
+     @Patch("/:id")
+     async remarkShcedule(@Param("id") id: number, @Body() dto: RemarkDto) {
+          return this.ScoreService.toRemark(id, dto);
      }
 }
