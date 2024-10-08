@@ -35,6 +35,7 @@ export class ScoreService {
      ) {}
 
      async fetchFlightsToday(event: eventType, date: Date): Promise<FlightsType> {
+          // console.log();
           const isoDate = date.toISOString();
           try {
                const response = await axios.get(
@@ -69,23 +70,19 @@ export class ScoreService {
           return updated;
      }
 
-     async join() {
-          const now = new Date();
-
-          const departure = await this.parseResponseData("departure", now);
-          const arrival = await this.parseResponseData("arrival", now);
+     async join(date: Date) {
+          const departure = await this.parseResponseData("departure", date);
+          const arrival = await this.parseResponseData("arrival", date);
 
           return [departure, arrival];
      }
 
-     async updateData() {
-          const today = new Date().toISOString().slice(0, 10);
-          console.log(today);
-          const data = await this.join();
+     async updateData(date: Date) {
+          const data = await this.join(date);
 
-          if (data[0].date === today && data[1].date === today) {
-               return await this.flightRepository.findAll({ include: [Schedule] });
-          }
+          const fromDB = await this.flightRepository.findAll({ include: [Schedule] });
+
+          if (fromDB[0].date === data[0].date) return fromDB;
 
           await this.flightRepository.destroy({
                where: {},

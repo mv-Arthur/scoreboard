@@ -6,10 +6,11 @@ import { SequelizeModule } from "@nestjs/sequelize";
 import { Flight } from "./models/Flight.model";
 import { Schedule } from "./models/Schedule.model";
 import { SocketService } from "./socket/socket.service";
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
-     imports: [HttpModule, SequelizeModule.forFeature([Flight, Schedule]), SocketService],
+     imports: [HttpModule, SequelizeModule.forFeature([Flight, Schedule]), ScheduleModule.forRoot()],
      controllers: [ScoreController],
-     providers: [ScoreService],
+     providers: [ScoreService, SocketService],
 })
 export class ScoreModule {}

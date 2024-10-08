@@ -7,7 +7,10 @@ export class ScoreController {
 
      @Get()
      async getTodayScore() {
-          return this.ScoreService.updateData();
+          const date = new Date();
+          // const tmp = new Date("2024-10-03");
+
+          return this.ScoreService.updateData(date);
      }
 
      @Patch("/:id")
